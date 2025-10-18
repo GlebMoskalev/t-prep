@@ -22,8 +22,6 @@ services:
     env_file:
       - .env
     environment:
-      # Автоматически формируем DATABASE_URL для Docker сети
-      - DATABASE_URL=postgresql://tprep_user:${POSTGRES_PASSWORD:-tprep_password}@db:5432/tprep_db
       # Отключаем DEBUG в продакшне
       - DEBUG=False
     restart: unless-stopped

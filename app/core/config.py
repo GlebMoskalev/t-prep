@@ -13,10 +13,12 @@ class Settings(BaseSettings):
         if not self.database_url:
             # В Docker контейнере используем внутренний хост 'db'
             # В локальной разработке используем 'localhost'
-            if os.getenv('DOCKER_CONTAINER') or os.path.exists('/.dockerenv'):
+            if os.getenv('DOCKER_CONTAINER') == '1' or os.path.exists('/.dockerenv'):
                 host = 'db'
+                print(f"🐳 Docker environment detected, using host: {host}")
             else:
                 host = 'localhost'
+                print(f"💻 Local environment detected, using host: {host}")
             
             postgres_password = os.getenv('POSTGRES_PASSWORD', 'tprep_password')
             self.database_url = f"postgresql://tprep_user:{postgres_password}@{host}:5432/tprep_db"
