@@ -1,0 +1,43 @@
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: tprep_db
+      POSTGRES_USER: tprep_user
+      POSTGRES_PASSWORD: tprep_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tprep_user -d tprep_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://tprep_user:tprep_password@db:5432/tprep_db
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - web
+
+volumes:
+  postgres_data:

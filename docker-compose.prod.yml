@@ -1,0 +1,85 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: tprep_db
+      POSTGRES_USER: tprep_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tprep_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backups:/backups
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tprep_user -d tprep_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - tprep-network
+
+  web:
+    build: .
+    env_file:
+      - .env
+    environment:
+      # Автоматически формируем DATABASE_URL для Docker сети
+      - DATABASE_URL=postgresql://tprep_user:${POSTGRES_PASSWORD:-tprep_password}@db:5432/tprep_db
+      # Отключаем DEBUG в продакшне
+      - DEBUG=False
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - tprep-network
+    # Убираем порты для продакшна - используем Nginx
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.prod.conf:/etc/nginx/nginx.conf
+      - ./static:/var/www/static
+      - /etc/letsencrypt:/etc/letsencrypt
+    depends_on:
+      - web
+    restart: unless-stopped
+    networks:
+      - tprep-network
+
+  # Бэкапы базы данных
+  backup:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: tprep_db
+      POSTGRES_USER: tprep_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tprep_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backups:/backups
+    command: |
+      sh -c '
+        while true; do
+          pg_dump -h db -U tprep_user tprep_db > /backups/backup_$$(date +%Y%m%d_%H%M%S).sql
+          # Удаляем бэкапы старше 7 дней
+          find /backups -name "backup_*.sql" -mtime +7 -delete
+          sleep 86400
+        done
+      '
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - tprep-network
+
+volumes:
+  postgres_data:
+
+networks:
+  tprep-network:
+    driver: bridge

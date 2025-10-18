@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>T-Prep API Тест</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            background: #4285f4;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #3367d6;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f9f9f9;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        .error {
+            background: #ffebee;
+            color: #c62828;
+        }
+        .success {
+            background: #e8f5e8;
+            color: #2e7d32;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 T-Prep API Тестер</h1>
+        
+        <div class="section">
+            <h3>🔍 Проверка состояния API</h3>
+            <button onclick="testHealth()">Проверить Health</button>
+            <button onclick="getGoogleAuthUrl()">Получить Google OAuth URL</button>
+            <div id="healthResult" class="result"></div>
+        </div>
+
+        <div class="section">
+            <h3>📱 Android авторизация</h3>
+            <p>Вставьте ID токен от Google Sign-In в Android приложении:</p>
+            <textarea id="androidToken" placeholder="Google ID Token..." rows="3"></textarea>
+            <button onclick="testAndroidAuth()">Тестировать Android авторизацию</button>
+            <div id="androidResult" class="result"></div>
+        </div>
+
+        <div class="section">
+            <h3>🌐 Веб авторизация (Google OAuth)</h3>
+            <p>Нажмите кнопку для авторизации через Google:</p>
+            <button onclick="startGoogleAuth()">Войти через Google</button>
+            <button onclick="logout()">Выйти</button>
+            <div id="webAuthResult" class="result"></div>
+        </div>
+
+        <div class="section">
+            <h3>👤 Информация о пользователе</h3>
+            <button onclick="getUserInfo()">Получить информацию о пользователе</button>
+            <div id="userResult" class="result"></div>
+        </div>
+
+        <div class="section">
+            <h3>📚 Тест модулей</h3>
+            <button onclick="createTestModule()">Создать тестовый модуль</button>
+            <button onclick="getModules()">Получить список модулей</button>
+            <div id="modulesResult" class="result"></div>
+        </div>
+
+        <div class="section">
+            <h3>🃏 Тест карточек</h3>
+            <input type="number" id="moduleId" placeholder="ID модуля">
+            <button onclick="createTestCard()">Создать тестовую карточку</button>
+            <button onclick="getModuleCards()">Получить карточки модуля</button>
+            <div id="cardsResult" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api/v1';
+        let authToken = localStorage.getItem('authToken');
+
+        // Проверка состояния API
+        async function testHealth() {
+            try {
+                const response = await fetch('http://localhost:8000/health');
+                const data = await response.json();
+                showResult('healthResult', JSON.stringify(data, null, 2), 'success');
+            } catch (error) {
+                showResult('healthResult', 'Ошибка: ' + error.message, 'error');
+            }
+        }
+
+        // Получение Google OAuth URL
+        async function getGoogleAuthUrl() {
+            try {
+                const response = await fetch(`${API_BASE}/auth/google`);
+                const data = await response.json();
+                showResult('healthResult', `Google OAuth URL:\n${data.auth_url}`, 'success');
+            } catch (error) {
+                showResult('healthResult', 'Ошибка: ' + error.message, 'error');
+            }
+        }
+
+        // Android авторизация
+        async function testAndroidAuth() {
+            const idToken = document.getElementById('androidToken').value.trim();
+            if (!idToken) {
+                showResult('androidResult', 'Введите ID токен', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/google/android?id_token=${encodeURIComponent(idToken)}`, {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    authToken = data.access_token;
+                    localStorage.setItem('authToken', authToken);
+                    showResult('androidResult', 'Авторизация успешна!\nТокен сохранен.', 'success');
+                } else {
+                    const error = await response.text();
+                    showResult('androidResult', `Ошибка авторизации: ${error}`, 'error');
+                }
+            } catch (error) {
+                showResult('androidResult', 'Ошибка: ' + error.message, 'error');
+            }
+        }
+
+        // Веб авторизация через Google
+        function startGoogleAuth() {
+            fetch(`${API_BASE}/auth/google`)
+                .then(response => response.json())
+                .then(data => {
+                    showResult('webAuthResult', 'Переход к Google авторизации...', 'success');
+                    window.location.href = data.auth_url;
+                })
+                .catch(error => {
+                    showResult('webAuthResult', 'Ошибка: ' + error.message, 'error');
+                });
+        }
+
+        // Выход из системы
+        function logout() {
+            localStorage.removeItem('authToken');
+            authToken = null;
+            showResult('webAuthResult', 'Вы вышли из системы', 'success');
+            showResult('userResult', 'Токен удален. Для получения информации о пользователе выполните авторизацию.', 'error');
+        }
+
+        // Получение информации о пользователе
+        async function getUserInfo() {
+            if (!authToken) {
+                showResult('userResult', 'Сначала выполните авторизацию', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/me`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    showResult('userResult', JSON.stringify(data, null, 2), 'success');
+                } else {
+                    showResult('userResult', 'Ошибка получения данных пользователя', 'error');
+                }
+            } catch (error) {
+                showResult('userResult', 'Ошибка: ' + error.message, 'error');
+            }
+        }
+
+        // Создание тестового модуля
+        async function createTestModule() {
+            if (!authToken) {
+                showResult('modulesResult', 'Сначала выполните авторизацию', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/modules/`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: 'Тестовый модуль',
+                        description: 'Модуль создан через веб-тестер'
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    showResult('modulesResult', `Модуль создан:\n${JSON.stringify(data, null, 2)}`, 'success');
+                } else {
+                    const error = await response.text();
+                    showResult('modulesResult', `Ошибка создания модуля: ${error}`, 'error');
+                }
+            } catch (error) {
+                showResult('modulesResult', 'Ошибка: ' + error.message, 'error');
+            }
+        }
+
+        // Получение списка модулей
+        async function getModules() {
+            if (!authToken) {
+                showResult('modulesResult', 'Сначала выполните авторизацию', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/modules/`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    showResult('modulesResult', `Модули:\n${JSON.stringify(data, null, 2)}`, 'success');
+                } else {
+                    showResult('modulesResult', 'Ошибка получения модулей', 'error');
+                }
+            } catch (error) {
+                showResult('modulesResult', 'Ошибка: ' + error.message, 'error');
+            }
+        }
+
+        // Создание тестовой карточки
+        async function createTestCard() {
+            if (!authToken) {
+                showResult('cardsResult', 'Сначала выполните авторизацию', 'error');
+                return;
+            }
+
+            const moduleId = document.getElementById('moduleId').value;
+            if (!moduleId) {
+                showResult('cardsResult', 'Введите ID модуля', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/cards/`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        question: 'Что такое T-Prep?',
+                        answer: 'T-Prep - это приложение для подготовки к экзаменам с использованием интервальных повторений',
+                        module_id: parseInt(moduleId)
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    showResult('cardsResult', `Карточка создана:\n${JSON.stringify(data, null, 2)}`, 'success');
+                } else {
+                    const error = await response.text();
+                    showResult('cardsResult', `Ошибка создания карточки: ${error}`, 'error');
+                }
+            } catch (error) {
+                showResult('cardsResult', 'Ошибка: ' + error.message, 'error');
+            }
+        }
+
+        // Получение карточек модуля
+        async function getModuleCards() {
+            if (!authToken) {
+                showResult('cardsResult', 'Сначала выполните авторизацию', 'error');
+                return;
+            }
+
+            const moduleId = document.getElementById('moduleId').value;
+            if (!moduleId) {
+                showResult('cardsResult', 'Введите ID модуля', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/cards/module/${moduleId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    showResult('cardsResult', `Карточки модуля:\n${JSON.stringify(data, null, 2)}`, 'success');
+                } else {
+                    showResult('cardsResult', 'Ошибка получения карточек', 'error');
+                }
+            } catch (error) {
+                showResult('cardsResult', 'Ошибка: ' + error.message, 'error');
+            }
+        }
+
+        function showResult(elementId, message, type = '') {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `result ${type}`;
+        }
+
+        // Проверка сохраненного токена при загрузке
+        function checkAuthStatus() {
+            if (authToken) {
+                showResult('webAuthResult', '✅ Вы авторизованы! Токен найден в localStorage.', 'success');
+                showResult('userResult', 'Найден сохраненный токен. Нажмите кнопку для проверки информации о пользователе.', 'success');
+            } else {
+                showResult('webAuthResult', '❌ Вы не авторизованы. Нажмите кнопку "Войти через Google" для авторизации.', 'error');
+            }
+        }
+
+        // Проверяем статус авторизации при загрузке страницы
+        checkAuthStatus();
+    </script>
+</body>
+</html>
