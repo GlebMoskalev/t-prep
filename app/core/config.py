@@ -22,6 +22,7 @@ class Settings(BaseSettings):
             
             postgres_password = os.getenv('POSTGRES_PASSWORD', 'tprep_password')
             self.database_url = f"postgresql://tprep_user:{postgres_password}@{host}:5432/tprep_db"
+            print(f"🔗 Database URL: {self.database_url}")
     
     # JWT
     secret_key: str = "your-secret-key-here-change-in-production"
