@@ -29,9 +29,8 @@ async def google_callback(
         
         auth_service = AuthService(db)
         user = auth_service.get_or_create_user(
-            email=user_info["email"],
             name=user_info["name"],
-            google_id=user_info["google_id"]
+            oidc_sub=user_info["google_id"]  # Google ID используется как OIDC sub
         )
         
         token = auth_service.create_access_token_for_user(user)
@@ -134,9 +133,8 @@ async def google_android_auth(
         
         auth_service = AuthService(db)
         user = auth_service.get_or_create_user(
-            email=user_info["email"],
             name=user_info["name"],
-            google_id=user_info["google_id"]
+            oidc_sub=user_info["google_id"]  # Google ID используется как OIDC sub
         )
         
         token = auth_service.create_access_token_for_user(user)

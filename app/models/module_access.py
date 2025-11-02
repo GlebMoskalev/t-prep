@@ -14,12 +14,12 @@ class ModuleAccess(Base):
     __tablename__ = "module_accesses"
 
     id = Column(Integer, primary_key=True, index=True)
-    module_id = Column(Integer, ForeignKey("modules.id"), nullable=False)
-    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    module_id = Column(Integer, ForeignKey("modules.id", ondelete="CASCADE"), nullable=False)
+    owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     view_access = Column(Enum(AccessLevel), nullable=False, default=AccessLevel.ONLY_ME)
     edit_access = Column(Enum(AccessLevel), nullable=False, default=AccessLevel.ONLY_ME)
     password_hash = Column(String, nullable=True)
 
     # Relationships
-    module = relationship("Module", back_populates="module_accesses")
+    module = relationship("Module", back_populates="access")
     owner = relationship("User", back_populates="module_accesses")

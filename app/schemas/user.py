@@ -1,35 +1,25 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from typing import Optional
-from datetime import datetime
 
 
 class UserBase(BaseModel):
     name: str
-    email: EmailStr
 
 
 class UserCreate(UserBase):
-    google_id: Optional[str] = None
+    oidc_sub: str
 
 
 class UserUpdate(BaseModel):
     name: Optional[str] = None
-    email: Optional[EmailStr] = None
 
 
-class UserInDB(UserBase):
+class User(UserBase):
     id: int
-    google_id: Optional[str]
-    is_active: bool
-    created_at: datetime
-    updated_at: Optional[datetime]
+    oidc_sub: str
 
     class Config:
         from_attributes = True
-
-
-class User(UserInDB):
-    pass
 
 
 class Token(BaseModel):
@@ -38,4 +28,4 @@ class Token(BaseModel):
 
 
 class TokenData(BaseModel):
-    email: Optional[str] = None
+    oidc_sub: Optional[str] = None
