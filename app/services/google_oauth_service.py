@@ -93,3 +93,14 @@ class GoogleOAuthService:
                 "google_id": token_info.get("sub"),
                 "picture": token_info.get("picture"),
             }
+
+class MockOAuthService:
+    def __init__(self):
+        pass
+    
+    async def authenticate_with_code(self, code: str) -> Dict[str, Any]:
+        return {
+            "email": "ohtuzeyb@hi2.in",
+            "name": "desantura",
+            "google_id": "123",
+        }
