@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from ...db.database import get_db
 from ...services.auth_service import AuthService
-from ...services.google_oauth_service import GoogleOAuthService
+from ...services.google_oauth_service import GoogleOAuthService, MockOAuthService
 from ...schemas.user import Token, User
 from ...core.deps import get_current_active_user
 
@@ -24,13 +24,13 @@ async def google_callback(
 ):
     """Handle Google OAuth callback"""
     try:
-        google_service = GoogleOAuthService()
+        google_service = MockOAuthService()
         user_info = await google_service.authenticate_with_code(code)
         
         auth_service = AuthService(db)
         user = auth_service.get_or_create_user(
             name=user_info["name"],
-            oidc_sub=user_info["google_id"]  # Google ID используется как OIDC sub
+            oidc_sub=user_info["google_id"]
         )
         
         token = auth_service.create_access_token_for_user(user)
