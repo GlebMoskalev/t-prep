@@ -12,12 +12,16 @@ class ModuleBase(BaseModel):
 
 
 class ModuleCreate(ModuleBase):
-    pass
+    ViewAccess: str
+    EditAccess: str
+    PasswordHash: Optional[str] = None
 
 
 class ModuleUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
+    ViewAccess: Optional[str] = None
+    EditAccess: Optional[str] = None
 
 
 class ModuleInDB(ModuleBase):

@@ -11,14 +11,14 @@ from ...core.deps import get_current_active_user
 router = APIRouter()
 
 
-@router.get("/module/{module_id}", response_model=List[CardSchema])
+@router.get("/{module_id}/cards", response_model=List[CardSchema])
 async def get_module_cards(
     module_id: int,
+    skip: int = 0,
+    take: int = 10,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Get all cards for a module"""
-    # Check if user owns the module
     module = db.query(Module).filter(
         Module.id == module_id,
         Module.owner_id == current_user.id

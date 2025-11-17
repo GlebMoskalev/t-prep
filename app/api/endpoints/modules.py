@@ -10,14 +10,19 @@ from ...core.deps import get_current_active_user
 router = APIRouter()
 
 
-@router.get("/", response_model=List[ModuleSchema])
+@router.get("/{search_string}", response_model=List[ModuleSchema])
 async def get_user_modules(
+    search_string: str,
+    skip: int = 0,
+    take: int = 10,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Get all modules owned by current user"""
-    modules = db.query(Module).filter(Module.owner_id == current_user.id).all()
-    return modules
+    modules = db.query(Module).filter(Module.owner_id == current_user.id, search_string in Module.name).all()
+    if len(modules) < skip:
+        return []
+    return modules[skip:min(len(modules), skip + take)]
 
 
 @router.post("/", response_model=ModuleSchema)
@@ -30,7 +35,10 @@ async def create_module(
     db_module = Module(
         name=module.name,
         description=module.description,
-        owner_id=current_user.id
+        owner_id=current_user.id,
+        edit_access = module.EditAccess,
+        view_access= module.ViewAccess,
+        password_hash = module.PasswordHash
     )
     
     db.add(db_module)
@@ -40,35 +48,13 @@ async def create_module(
     return db_module
 
 
-@router.get("/{module_id}", response_model=ModuleWithCards)
-async def get_module(
-    module_id: int,
-    current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    """Get module by ID with cards"""
-    module = db.query(Module).filter(
-        Module.id == module_id,
-        Module.owner_id == current_user.id
-    ).first()
-    
-    if not module:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Module not found"
-        )
-    
-    return module
-
-
-@router.put("/{module_id}", response_model=ModuleSchema)
+@router.patch("/{module_id}", response_model=ModuleSchema)
 async def update_module(
     module_id: int,
     module_update: ModuleUpdate,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Update module"""
     module = db.query(Module).filter(
         Module.id == module_id,
         Module.owner_id == current_user.id
@@ -95,7 +81,6 @@ async def delete_module(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Delete module"""
     module = db.query(Module).filter(
         Module.id == module_id,
         Module.owner_id == current_user.id
