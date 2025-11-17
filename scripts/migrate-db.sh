@@ -29,7 +29,7 @@ echo "✅ База данных готова"
 
 # Выполняем миграции Alembic
 echo "🚀 Выполнение миграций Alembic..."
-docker compose -f $COMPOSE_FILE exec -T web sh -c "export DATABASE_URL=postgresql://tprep_user:${POSTGRES_PASSWORD:-tprep_password}@db:5432/tprep_db && alembic upgrade head" || {
+docker compose -f $COMPOSE_FILE exec -T web alembic upgrade head || {
     echo "❌ Ошибка при выполнении миграций"
     exit 1
 }
@@ -38,6 +38,6 @@ echo "✅ Миграции выполнены успешно!"
 
 # Проверяем статус миграций
 echo "📊 Текущий статус миграций:"
-docker compose -f $COMPOSE_FILE exec -T web sh -c "export DATABASE_URL=postgresql://tprep_user:${POSTGRES_PASSWORD:-tprep_password}@db:5432/tprep_db && alembic current"
+docker compose -f $COMPOSE_FILE exec -T web alembic current
 
 echo "🎉 Все миграции выполнены!"
