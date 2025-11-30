@@ -53,6 +53,11 @@ class ModuleWithCards(Module):
     cards: List["Card"] = []
 
 
+class GetModulesResponse:
+    items: List[Module]
+    total_count: int
+
+
 # Импортируем Card после определения классов чтобы избежать циклического импорта
 from .card import Card  # noqa: E402
 

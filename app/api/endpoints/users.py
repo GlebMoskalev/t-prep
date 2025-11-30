@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List
 from ...db.database import get_db
 from ...models.user import User
-from ...schemas.user import User as UserSchema, UserUpdate
+from ...schemas.user import User as UserSchema, UserUpdate, UserCreate
 from ...core.deps import get_current_active_user
 
 router = APIRouter()
@@ -24,15 +24,11 @@ async def get_current_user(
     return user
 
 
-@router.put("/users", response_model=UserSchema)
+@router.post("/", response_model=UserSchema)
 async def update_current_user(
-    user_update: UserUpdate,
-    current_user: User = Depends(get_current_active_user),
+    user_create: UserCreate,
     db: Session = Depends(get_db)
 ):
-    for field, value in user_update.dict(exclude_unset=True).items():
-        setattr(current_user, field, value)
-    
+    db.add(user_create)
     db.commit()
-    db.refresh(current_user)
-    return current_user
+    return user_create

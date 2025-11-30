@@ -4,13 +4,13 @@ from typing import List
 from ...db.database import get_db
 from ...models.user import User
 from ...models.module import Module
-from ...schemas.module import Module as ModuleSchema, ModuleCreate, ModuleUpdate, ModuleWithCards
+from ...schemas.module import Module as ModuleSchema, ModuleCreate, ModuleUpdate, ModuleWithCards, GetModulesResponse
 from ...core.deps import get_current_active_user
 
 router = APIRouter()
 
 
-@router.get("/{search_string}", response_model=List[ModuleSchema])
+@router.get("/{search_string}", response_model=GetModulesResponse)
 async def get_user_modules(
     search_string: str,
     skip: int = 0,
@@ -22,7 +22,8 @@ async def get_user_modules(
     modules = db.query(Module).filter(Module.owner_id == current_user.id, search_string in Module.name).all()
     if len(modules) < skip:
         return []
-    return modules[skip:min(len(modules), skip + take)]
+    
+    return GetModulesResponse(items=modules[skip:min(len(modules), skip + take)], total_count = len(modules))
 
 
 @router.post("/", response_model=ModuleSchema)
