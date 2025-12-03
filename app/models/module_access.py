@@ -16,8 +16,8 @@ class ModuleAccess(Base):
     id = Column(Integer, primary_key=True, index=True)
     module_id = Column(Integer, ForeignKey("modules.id", ondelete="CASCADE"), nullable=False)
     owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    view_access = Column(Enum(AccessLevel), nullable=False, default=AccessLevel.ONLY_ME)
-    edit_access = Column(Enum(AccessLevel), nullable=False, default=AccessLevel.ONLY_ME)
+    view_access = Column(String, nullable=False, default=AccessLevel.ONLY_ME)
+    edit_access = Column(String, nullable=False, default=AccessLevel.ONLY_ME)
     password_hash = Column(String, nullable=True)
 
     # Relationships

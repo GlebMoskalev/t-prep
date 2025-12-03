@@ -13,11 +13,8 @@ class Module(Base):
     owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-    password_hash = Column(String, nulable=True)
 
     # Relationships
     owner = relationship("User", back_populates="modules")
     cards = relationship("Card", back_populates="module", cascade="all, delete-orphan")
     access = relationship("ModuleAccess", back_populates="module", cascade="all, delete-orphan")
-    edit_access = relationship("EditAccess", back_populates="module", cascade="all, delete-orphan")
-    view_access = relationship("ViewAccess", back_populates="module", cascade="all, delete-orphan")
