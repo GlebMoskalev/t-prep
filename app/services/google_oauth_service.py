@@ -84,7 +84,7 @@ class GoogleOAuthService:
             token_info = response.json()
             
             # Verify the token is for our Android app
-            if token_info.get("aud") != self.android_client_id:
+            if token_info.get("azp") != self.android_client_id:
                 raise ValueError("Invalid audience for Android token")
             
             return {
