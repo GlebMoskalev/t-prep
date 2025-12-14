@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from app.api.v1.api import api_router
 from app.core.config import settings
+from app.services.push_scheduler_service import push_scheduler
 
 
 @asynccontextmanager
@@ -21,11 +22,18 @@ async def lifespan(app: FastAPI):
         print("✅ Database tables created successfully!")
     except Exception as e:
         print(f"⚠️  Warning: Could not create database tables: {e}")
+
+    print(f"⏰ Starting push scheduler (interval: {settings.PUSH_INTERVAL_MINUTES}min)...")
+    try:
+        push_scheduler.start()
+        print("✅ Push scheduler started")
+    except Exception as e:
+        print(f"❌ Failed to start push scheduler: {e}")
     
     yield
-    
-    # Shutdown
-    print("🛑 Shutting down...")
+
+    print("🛑 Shutting down T-Prep application...")
+    push_scheduler.stop()
 
 app = FastAPI(
     title="T-Prep API",

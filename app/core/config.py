@@ -46,6 +46,10 @@ class Settings(BaseSettings):
         "case_sensitive": False,
         "extra": "ignore"  # Игнорировать неизвестные поля
     }
+    
+    FCM_PROJECT_ID: str = "your-project-id"
+    PUSH_INTERVAL_MINUTES: int = 10
+    FCM_SERVICE_ACCOUNT_FILE: str = "path-to-file"
 
 
 settings = Settings()
