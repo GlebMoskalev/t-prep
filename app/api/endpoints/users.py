@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List
 from ...db.database import get_db
 from ...models.user import User
-from ...schemas.user import User as UserSchema, UserUpdate, UserCreate
+from ...schemas.user import User as UserSchema, UserUpdate, UserCreate, PushTokenUpdate
 from ...core.deps import get_current_active_user
 
 router = APIRouter()
@@ -32,3 +32,15 @@ async def update_current_user(
     db.add(user_create)
     db.commit()
     return user_create
+
+
+@router.post("/push-token")
+async def update_push_token(
+    push_data: PushTokenUpdate,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Сохранить push token для текущего пользователя"""
+    current_user.push_id = push_data.push_token
+    db.commit()
+    return {"message": "Push token saved successfully"}

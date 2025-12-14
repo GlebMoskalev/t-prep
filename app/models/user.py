@@ -9,6 +9,7 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
     oidc_sub = Column(String, unique=True, index=True, nullable=False)
+    push_id = Column(String, nullable=True)
 
     # Relationships
     modules = relationship("Module", back_populates="owner", cascade="all, delete-orphan")

@@ -16,6 +16,10 @@ class UserUpdate(BaseModel):
     name: Optional[str] = None
 
 
+class PushTokenUpdate(BaseModel):
+    push_token: str
+
+
 class User(UserBase):
     id: int
     oidc_sub: str
