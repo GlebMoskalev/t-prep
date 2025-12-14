@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 
 
@@ -8,11 +8,11 @@ class CardBase(BaseModel):
     answer: str
 
 
-class CardCreateRequest(CardBase):
+class CreateCardRequest(CardBase):
     pass
 
 
-class CardUpdate(BaseModel):
+class PatchCardRequest(BaseModel):
     question: Optional[str] = None
     answer: Optional[str] = None
 
@@ -27,12 +27,18 @@ class CardInDB(CardBase):
         from_attributes = True
 
 
-class Card(CardInDB):
-    pass
+class Card(BaseModel):
+    id: str
+    question: str
+    answer_variant: List[str]
+    right_answer: int
 
-class GetCardsResponse(BaseModel):
-    Items: list[Card]
-    TotalCount: int
+    class Config:
+        from_attributes = True    
+
+class GetCardResponse(BaseModel):
+    items: list[Card]
+    total_count: int
 
     class Config:
         from_attributes = True

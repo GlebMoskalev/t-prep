@@ -1,17 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Tuple
 from ...db.database import get_db
 from ...models.user import User
 from ...models.module import Module
 from ...models.card import Card
-from ...schemas.card import Card as CardSchema, CardCreateRequest, CardUpdate
+from ...schemas.card import Card as CardSchema, CreateCardRequest, PatchCardRequest, GetCardResponse, CardInDB
 from ...core.deps import get_current_active_user
+import random
 
 router = APIRouter()
 
 
-@router.get("/", response_model=List[CardSchema])
+@router.get("/", response_model=GetCardResponse)
 async def get_module_cards(
     module_id: int,
     skip: int = 0,
@@ -31,13 +32,47 @@ async def get_module_cards(
         )
     
     cards = db.query(Card).filter(Card.module_id == module_id).all()
-    return cards
+    
+    correct_cards = cardsdb_to_cards(cards)
+
+    return GetCardResponse(
+        items=correct_cards[skip:max(skip+take, len(correct_cards))],
+        total_count=min(take, len(correct_cards) - skip)
+    )
+
+def cardsdb_to_cards(cardsdb: List[Card]) -> List[CardSchema]:
+    all_answers = [card.answer for card in cardsdb]
+    result = []
+    for card in sorted(cardsdb, key=lambda x: x.id):
+        ans, id = get_three_answer(all_answers, card.answer)
+        result.append(CardSchema(id=str(card.id),
+                                 question=card.question,
+                                 answer_variant=ans,
+                                 right_answer=id))
+        
+    return result
+
+def get_three_answer(answers: List[str], right_answer: str):
+    i = 0
+    result = []
+    for answer in random.sample(answers, len(answers)):
+        result.append(answer)
+        i += 1
+        if i == 4:
+            break
+        
+    if right_answer in result:
+        return result, result.index(right_answer)
+    
+    result.pop()
+    result.insert(len(result) // 2, answer)
+    return result, (len(result) // 2)
 
 
-@router.post("/", response_model=CardSchema)
+@router.post("/", response_model=CardInDB)
 async def create_card(
     module_id: int,
-    card: CardCreateRequest,
+    card: CreateCardRequest,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
@@ -67,7 +102,7 @@ async def create_card(
     return db_card
 
 
-@router.get("/{card_id}", response_model=CardSchema)
+@router.get("/{card_id}", response_model=CardInDB)
 async def get_card(
     module_id: int,
     card_id: int,
@@ -90,11 +125,11 @@ async def get_card(
     return card
 
 
-@router.patch("/{card_id}", response_model=CardSchema)
+@router.patch("/{card_id}", response_model=CardInDB)
 async def update_card(
     module_id: int,
     card_id: int,
-    card_update: CardUpdate,
+    card_update: PatchCardRequest,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
