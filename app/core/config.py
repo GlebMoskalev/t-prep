@@ -46,6 +46,9 @@ class Settings(BaseSettings):
         "case_sensitive": False,
         "extra": "ignore"  # Игнорировать неизвестные поля
     }
+    
+    FCM_API_KEY: str = "you-fcm-api-key"
+    PUSH_INTERVAL_MINUTES: int = 10
 
 
 settings = Settings()
