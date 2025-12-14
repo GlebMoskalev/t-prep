@@ -13,15 +13,13 @@ router = APIRouter()
 
 @router.get("/", response_model=GetModulesResponse)
 async def get_user_modules(
-    search_string: str,
     skip: int = 0,
     take: int = 10,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     modules = db.query(Module).filter(
-        Module.owner_id == current_user.id,
-        Module.name.contains(search_string)
+        Module.owner_id == current_user.id
     ).all()
     
     if len(modules) < skip:
