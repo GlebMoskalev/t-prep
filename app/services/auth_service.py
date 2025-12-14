@@ -17,16 +17,20 @@ class AuthService:
         user = self.db.query(User).filter(User.oidc_sub == oidc_sub).first()
         return user
 
-    def create_user_from_oidc(self, name: str, oidc_sub: str) -> User:
+    def create_user_from_oidc(self, name: str, oidc_sub: str, email: str, picture: str) -> User:
         """Create new user from OIDC data"""
         user_data = UserCreate(
             name=name,
-            oidc_sub=oidc_sub
+            oidc_sub=oidc_sub,
+            email=email,
+            picture=picture
         )
         
         db_user = User(
             name=user_data.name,
-            oidc_sub=user_data.oidc_sub
+            oidc_sub=user_data.oidc_sub,
+            email=user_data.email,
+            picture=user_data.picture
         )
         
         self.db.add(db_user)
@@ -35,14 +39,14 @@ class AuthService:
         
         return db_user
 
-    def get_or_create_user(self, name: str, oidc_sub: str) -> User:
+    def get_or_create_user(self, name: str, oidc_sub: str, email: str, picture: str) -> User:
         """Get existing user or create new one from OIDC"""
         user = self.db.query(User).filter(User.oidc_sub == oidc_sub).first()
         
         if user:
             return user
         
-        return self.create_user_from_oidc(name, oidc_sub)
+        return self.create_user_from_oidc(name, oidc_sub, email, picture)
 
     def create_access_token_for_user(self, user: User) -> Token:
         """Create JWT access token for user"""
