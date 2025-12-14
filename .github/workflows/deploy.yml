@@ -72,6 +72,8 @@ jobs:
         REFRESH_TOKEN_EXPIRE_DAYS: ${{ secrets.REFRESH_TOKEN_EXPIRE_DAYS }}
         DEBUG: ${{ secrets.DEBUG }}
         LOG_LEVEL: ${{ secrets.LOG_LEVEL }}
+        FCM_PROJECT_ID: ${{ secrets.FCM_PROJECT_ID }}
+        FCM_SERVICE_ACCOUNT_JSON: ${{ secrets.FCM_SERVICE_ACCOUNT_JSON }}
       run: |
         echo "🔍 Валидация GitHub Secrets..."
         
@@ -166,7 +168,19 @@ jobs:
           
           # Logging
           LOG_LEVEL=${{ secrets.LOG_LEVEL || 'INFO' }}
+          
+          # FCM (Firebase Cloud Messaging)
+          FCM_PROJECT_ID=${{ secrets.FCM_PROJECT_ID }}
           EOF
+          
+          # Создаем файл сервисного аккаунта FCM из секрета
+          if [ -n "${{ secrets.FCM_SERVICE_ACCOUNT_JSON }}" ]; then
+            cat > /opt/t-prep/fcm-service-account.json << 'FCMEOF'
+          ${{ secrets.FCM_SERVICE_ACCOUNT_JSON }}
+          FCMEOF
+            echo "FCM_SERVICE_ACCOUNT_FILE=/opt/t-prep/fcm-service-account.json" >> .env
+            echo "✅ FCM service account файл создан"
+          fi
           
           echo "✅ .env файл создан из GitHub Secrets"
           
