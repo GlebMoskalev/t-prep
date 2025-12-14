@@ -11,7 +11,7 @@ from ...core.deps import get_current_active_user
 router = APIRouter()
 
 
-@router.get("/{search_string}", response_model=GetModulesResponse)
+@router.get("/", response_model=GetModulesResponse)
 async def get_user_modules(
     search_string: str,
     skip: int = 0,
