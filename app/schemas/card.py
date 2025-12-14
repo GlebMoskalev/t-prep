@@ -8,8 +8,8 @@ class CardBase(BaseModel):
     answer: str
 
 
-class CardCreate(CardBase):
-    module_id: int
+class CardCreateRequest(CardBase):
+    pass
 
 
 class CardUpdate(BaseModel):
@@ -29,3 +29,10 @@ class CardInDB(CardBase):
 
 class Card(CardInDB):
     pass
+
+class GetCardsResponse(BaseModel):
+    Items: list[Card]
+    TotalCount: int
+
+    class Config:
+        from_attributes = True

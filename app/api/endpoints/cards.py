@@ -5,20 +5,20 @@ from ...db.database import get_db
 from ...models.user import User
 from ...models.module import Module
 from ...models.card import Card
-from ...schemas.card import Card as CardSchema, CardCreate, CardUpdate
+from ...schemas.card import Card as CardSchema, CardCreateRequest, CardUpdate
 from ...core.deps import get_current_active_user
 
 router = APIRouter()
 
 
-@router.get("/module/{module_id}", response_model=List[CardSchema])
+@router.get("/", response_model=List[CardSchema])
 async def get_module_cards(
     module_id: int,
+    skip: int = 0,
+    take: int = 10,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Get all cards for a module"""
-    # Check if user owns the module
     module = db.query(Module).filter(
         Module.id == module_id,
         Module.owner_id == current_user.id
@@ -36,14 +36,15 @@ async def get_module_cards(
 
 @router.post("/", response_model=CardSchema)
 async def create_card(
-    card: CardCreate,
+    module_id: int,
+    card: CardCreateRequest,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Create a new card"""
     # Check if user owns the module
     module = db.query(Module).filter(
-        Module.id == card.module_id,
+        Module.id == module_id,
         Module.owner_id == current_user.id
     ).first()
     
@@ -56,18 +57,19 @@ async def create_card(
     db_card = Card(
         question=card.question,
         answer=card.answer,
-        module_id=card.module_id
+        module_id=module_id
     )
     
     db.add(db_card)
     db.commit()
     db.refresh(db_card)
-    
+
     return db_card
 
 
 @router.get("/{card_id}", response_model=CardSchema)
 async def get_card(
+    module_id: int,
     card_id: int,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
@@ -75,20 +77,22 @@ async def get_card(
     """Get card by ID"""
     card = db.query(Card).join(Module).filter(
         Card.id == card_id,
-        Module.owner_id == current_user.id
+        Module.owner_id == current_user.id,
+        Module.id == module_id
     ).first()
-    
+
     if not card:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Card not found"
         )
-    
+
     return card
 
 
-@router.put("/{card_id}", response_model=CardSchema)
+@router.patch("/{card_id}", response_model=CardSchema)
 async def update_card(
+    module_id: int,
     card_id: int,
     card_update: CardUpdate,
     current_user: User = Depends(get_current_active_user),
@@ -97,7 +101,8 @@ async def update_card(
     """Update card"""
     card = db.query(Card).join(Module).filter(
         Card.id == card_id,
-        Module.owner_id == current_user.id
+        Module.owner_id == current_user.id,
+        Module.id == module_id
     ).first()
     
     if not card:
@@ -117,6 +122,7 @@ async def update_card(
 
 @router.delete("/{card_id}")
 async def delete_card(
+    module_id: int,
     card_id: int,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
@@ -124,7 +130,8 @@ async def delete_card(
     """Delete card"""
     card = db.query(Card).join(Module).filter(
         Card.id == card_id,
-        Module.owner_id == current_user.id
+        Module.owner_id == current_user.id,
+        Module.id == module_id
     ).first()
     
     if not card:
@@ -135,5 +142,5 @@ async def delete_card(
     
     db.delete(card)
     db.commit()
-    
+
     return {"message": "Card deleted successfully"}

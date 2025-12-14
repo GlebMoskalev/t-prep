@@ -7,6 +7,8 @@ class UserBase(BaseModel):
 
 
 class UserCreate(UserBase):
+    email: str
+    picture: str
     oidc_sub: str
 
 
