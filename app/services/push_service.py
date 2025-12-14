@@ -1,40 +1,37 @@
 # app/services/push_service.py
 import asyncio
 import logging
+import os
 from typing import List, Optional, Dict, Any
 from datetime import datetime
+from pathlib import Path
 from app.core.config import settings
-from app.db.database import SessionLocal
 
 logger = logging.getLogger(__name__)
+
 
 class PushNotificationService:
     def __init__(self):
         self.push_service = None
         self.is_running = False
-        
-        if settings.FCM_API_KEY:
-            # Импортируем здесь, чтобы не зависеть от установки библиотеки
-            try:
-                from firebase_admin import messaging, credentials
-                import firebase_admin
-                
-                # Инициализация Firebase Admin SDK
-                if not firebase_admin._apps:
-                    # Если у вас есть service account key
-                    # cred = credentials.Certificate("path/to/service-account-key.json")
-                    # firebase_admin.initialize_app(cred)
-                    
-                    # Или инициализируем с помощью API ключа
-                    from pyfcm import FCMNotification
-                    self.push_service = FCMNotification(api_key=settings.FCM_API_KEY)
-                    
-                logger.info("✅ Push notification service initialized")
-            except ImportError:
-                logger.error("❌ Firebase libraries not installed. Run: pip install firebase-admin pyfcm")
-        else:
-            logger.warning("⚠️  FCM_API_KEY not configured. Push notifications disabled.")
     
+        self._initialize_fcm()
+    
+    def _initialize_fcm(self):
+        from pyfcm import FCMNotification
+    
+        if hasattr(settings, 'FCM_SERVICE_ACCOUNT_FILE') and settings.FCM_SERVICE_ACCOUNT_FILE:
+            service_account_path = Path(settings.FCM_SERVICE_ACCOUNT_FILE)
+            if service_account_path.exists():
+                self.push_service = FCMNotification(
+                    service_account_file=str(service_account_path),
+                    project_id=getattr(settings, 'FCM_PROJECT_ID', None)
+                )
+                logger.info("✅ FCM initialized with service account file")
+                return
+            else:
+                logger.warning(f"⚠️  Service account file not found: {service_account_path}")
+
     def send_push(
         self,
         fcm_token: str,
