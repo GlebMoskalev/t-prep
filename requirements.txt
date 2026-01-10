@@ -16,3 +16,4 @@ cryptography==41.0.7
 pyfcm==2.1.0
 firebase-admin>=6.0.0
 fsrs==6.3.0
+apscheduler==3.10.4
