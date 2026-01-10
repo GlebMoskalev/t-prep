@@ -1,245 +1,280 @@
-from datetime import datetime, timedelta
-from typing import List, Optional
+from datetime import datetime, timezone
+from typing import List, Dict, Any
 from sqlalchemy.orm import Session
-from sqlalchemy import and_
+from sqlalchemy import and_, asc
+from fsrs import Scheduler, Card, Rating, State
+import random
 from ..models.interval_repetition import IntervalRepetition, RepetitionState
-from ..models.card import Card
-from ..models.user import User
-import math
+from ..models.card import Card as DBCard
+from dataclasses import dataclass
+from typing import List
+
+
+@dataclass
+class UpdateCardIntervalRepetitionRequest:
+    TimeOfAnswer: datetime
+    RightAnswer: bool
+
+@dataclass
+class CardResponse:
+    Id: str
+    Question: str
+    AnswerVariant: List[str]
+    RightAnswer: int
+
+@dataclass
+class GetInternalRepetitionCardResponse:
+    Items: List[CardResponse]
+    TotalCount: int
 
 
 class RepetitionService:
-    """Сервис для работы с интервальными повторениями (SFRS-подобный алгоритм)"""
-    
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, fsrs_optimizer=None):
+        """
+        Инициализация сервиса интервальных повторений.
+        
+        Args:
+            db: Сессия SQLAlchemy
+            fsrs_optimizer: Оптимизатор FSRS (опционально)
+        """
         self.db = db
-    
-    def create_repetition(self, card_id: int, user_id: int) -> IntervalRepetition:
-        """
-        Создать новую запись интервального повторения для карточки и пользователя.
-        Начальные параметры согласно ТЗ:
-        - state = Learning
-        - step = 0
-        - stability = 0.5
-        - difficulty = 0.3
-        - due = now + 20 минут
-        """
-        # Проверяем, существует ли уже запись
+        self.fsrs = Scheduler()
+        
+    def enable_interval_repetitions(self, user_id: int, module_id: int) -> None:
         existing = self.db.query(IntervalRepetition).filter(
             and_(
-                IntervalRepetition.card_id == card_id,
-                IntervalRepetition.user_id == user_id
+                IntervalRepetition.user_id == user_id,
+                IntervalRepetition.module_id == module_id
             )
         ).first()
         
         if existing:
-            return existing
+            return
+
+        module_cards = self.db.query(DBCard).filter(
+            DBCard.module_id == module_id,
+        ).all()
         
+        if not module_cards:
+            return
+
         now = datetime.now()
-        repetition = IntervalRepetition(
-            card_id=card_id,
-            user_id=user_id,
-            state=RepetitionState.Learning,
-            step=0,
-            stability=0.5,
-            difficulty=0.3,
-            due=now + timedelta(minutes=20),
-            last_review=None
-        )
+        repetitions = []
+        for card in module_cards:
+            fsrs_card = Card()
+
+            repetition = IntervalRepetition(
+                user_id=user_id,
+                module_id=int(module_id),
+                card_id=card.id,
+                state=self._get_repetition_state(fsrs_card.state),
+                step=0,
+                stability=fsrs_card.stability,
+                difficulty=fsrs_card.difficulty,
+                due=now,
+                last_review=None
+            )
+            repetitions.append(repetition)
         
-        self.db.add(repetition)
+        self.db.bulk_save_objects(repetitions)  # ← Массовая вставка)
         self.db.commit()
-        self.db.refresh(repetition)
         
-        return repetition
-    
-    def update_repetition_on_answer(
-        self, 
-        repetition_id: int, 
-        is_correct: bool
-    ) -> IntervalRepetition:
+    def disable_interval_repetitions(self, user_id: int, module_id: int) -> None:
         """
-        Обновить параметры повторения на основе ответа пользователя.
+        Отключить интервальные повторения для модуля пользователя.
         
-        Если ответ правильный:
-        - Увеличить stability
-        - Уменьшить difficulty
-        - Увеличить step
-        - Пересчитать due (экспоненциально: +8ч, +1д, +3д, +7д, +14д, +30д...)
-        - Перевести в Review при достаточном количестве правильных ответов
-        
-        Если ответ неправильный:
-        - Уменьшить stability
-        - Увеличить difficulty
-        - Сбросить step = 0
-        - due = now + 10 минут
-        - state = Relearning
+        Args:
+            user_id: ID пользователя
+            module_id: ID модуля
         """
+        # Удаляем все записи о повторениях для этого модуля и пользователя
+        self.db.query(IntervalRepetition).filter(
+            and_(
+                IntervalRepetition.user_id == user_id,
+                IntervalRepetition.module_id == module_id
+            )
+        ).delete()
+        
+        self.db.commit()
+        
+    def update_card_status(
+        self,
+        user_id: int,
+        module_id: int,
+        card_id: int,
+        request: UpdateCardIntervalRepetitionRequest
+    ) -> Dict[str, Any]:
+        """
+        Обновить статус карточки для интервального повторения.
+        
+        Args:
+            user_id: ID пользователя
+            module_id: ID модуля
+            card_id: ID карточки
+            request: Данные об ответе
+            
+        Returns:
+            Обновленная информация о карточке
+        """
+        # Находим запись о повторении
         repetition = self.db.query(IntervalRepetition).filter(
-            IntervalRepetition.id == repetition_id
+            and_(
+                IntervalRepetition.user_id == user_id,
+                IntervalRepetition.module_id == module_id,
+                IntervalRepetition.card_id == card_id
+            )
         ).first()
         
         if not repetition:
-            raise ValueError(f"Repetition with id {repetition_id} not found")
-        
-        now = datetime.now()
-        repetition.last_review = now
-        
-        if is_correct:
-            # Правильный ответ
-            # Увеличиваем стабильность (максимум 10.0)
-            repetition.stability = min(10.0, repetition.stability * 1.3 + 0.1)
-            
-            # Уменьшаем сложность (минимум 0.1)
-            repetition.difficulty = max(0.1, repetition.difficulty - 0.05)
-            
-            # Увеличиваем шаг
-            repetition.step += 1
-            
-            # Переводим в Review после 3 правильных ответов подряд
-            if repetition.state == RepetitionState.Learning and repetition.step >= 3:
-                repetition.state = RepetitionState.Review
-            elif repetition.state == RepetitionState.Relearning and repetition.step >= 2:
-                repetition.state = RepetitionState.Review
-            
-            # Рассчитываем следующий интервал (экспоненциальный рост)
-            interval = self._calculate_next_interval(repetition.step, repetition.stability)
-            repetition.due = now + timedelta(hours=interval)
-            
-        else:
-            # Неправильный ответ
-            # Уменьшаем стабильность (минимум 0.1)
-            repetition.stability = max(0.1, repetition.stability * 0.5)
-            
-            # Увеличиваем сложность (максимум 1.0)
-            repetition.difficulty = min(1.0, repetition.difficulty + 0.1)
-            
-            # Сбрасываем шаг
-            repetition.step = 0
-            
-            # Переводим в Relearning
-            repetition.state = RepetitionState.Relearning
-            
-            # Устанавливаем короткий интервал
-            repetition.due = now + timedelta(minutes=10)
-        
-        self.db.commit()
-        self.db.refresh(repetition)
-        
-        return repetition
+            raise ValueError("Card not found in interval repetitions")
     
-    def _calculate_next_interval(self, step: int, stability: float) -> float:
-        """
-        Рассчитать следующий интервал повторения в часах.
-        Интервалы растут экспоненциально с учетом стабильности.
-        
-        Базовые интервалы:
-        - step 0-1: 8 часов
-        - step 2: 24 часа (1 день)
-        - step 3: 72 часа (3 дня)
-        - step 4+: экспоненциальный рост
-        """
-        # Базовые интервалы для первых шагов
-        base_intervals = [8, 8, 24, 72]
-        
-        if step < len(base_intervals):
-            base_interval = base_intervals[step]
-        else:
-            # Экспоненциальный рост для последующих шагов
-            # Формула: 72 * 2^(step - 3)
-            base_interval = 72 * (2 ** (step - 3))
-        
-        # Корректируем интервал на основе стабильности
-        # Стабильность влияет как множитель (0.1 - 10.0)
-        adjusted_interval = base_interval * (0.5 + stability / 2)
-        
-        # Ограничиваем максимальный интервал (6 месяцев = 4320 часов)
-        return min(adjusted_interval, 4320)
+        print('Ok')
+        fsrs_card = self._deserialize_fsrs_card(repetition)
+        print('Ok')
     
-    def get_due_cards_for_user(
-        self, 
-        user_id: int, 
-        hours_ahead: float = 12.0
-    ) -> List[IntervalRepetition]:
-        """
-        Получить карточки, которые нужно повторить в ближайшие N часов.
-        По умолчанию - 12 часов.
-        """
-        threshold = datetime.now() + timedelta(hours=hours_ahead)
-        
-        repetitions = self.db.query(IntervalRepetition).filter(
-            and_(
-                IntervalRepetition.user_id == user_id,
-                IntervalRepetition.due <= threshold
-            )
-        ).order_by(IntervalRepetition.due.asc()).all()
-        
-        return repetitions
-    
-    def get_overdue_cards_for_user(self, user_id: int) -> List[IntervalRepetition]:
-        """Получить просроченные карточки (due < now)"""
-        now = datetime.now()
-        
-        repetitions = self.db.query(IntervalRepetition).filter(
-            and_(
-                IntervalRepetition.user_id == user_id,
-                IntervalRepetition.due < now
-            )
-        ).order_by(IntervalRepetition.due.asc()).all()
-        
-        return repetitions
-    
-    def get_repetition_by_card_and_user(
-        self, 
-        card_id: int, 
-        user_id: int
-    ) -> Optional[IntervalRepetition]:
-        """Получить запись повторения по card_id и user_id"""
-        return self.db.query(IntervalRepetition).filter(
-            and_(
-                IntervalRepetition.card_id == card_id,
-                IntervalRepetition.user_id == user_id
-            )
-        ).first()
-    
-    def get_user_statistics(self, user_id: int) -> dict:
-        """Получить статистику по повторениям пользователя"""
-        all_repetitions = self.db.query(IntervalRepetition).filter(
-            IntervalRepetition.user_id == user_id
-        ).all()
-        
-        from datetime import timezone
-        now = datetime.now(timezone.utc)
-        
-        stats = {
-            "total_cards": len(all_repetitions),
-            "learning": sum(1 for r in all_repetitions if r.state == RepetitionState.Learning),
-            "review": sum(1 for r in all_repetitions if r.state == RepetitionState.Review),
-            "relearning": sum(1 for r in all_repetitions if r.state == RepetitionState.Relearning),
-            "due_today": sum(1 for r in all_repetitions if r.due < now + timedelta(days=1)),
-            "overdue": sum(1 for r in all_repetitions if r.due < now),
-        }
-        
-        return stats
-    
-    def initialize_user_cards(self, user_id: int, module_id: int) -> List[IntervalRepetition]:
-        """
-        Инициализировать интервальные повторения для всех карточек модуля.
-        Создает записи для карточек, у которых их еще нет.
-        """
-        # Получаем все карточки модуля
-        cards = self.db.query(Card).filter(Card.module_id == module_id).all()
-        
-        created_repetitions = []
-        
-        for card in cards:
-            # Проверяем, есть ли уже запись
-            existing = self.get_repetition_by_card_and_user(card.id, user_id)
-            
-            if not existing:
-                # Создаем новую запись
-                repetition = self.create_repetition(card.id, user_id)
-                created_repetitions.append(repetition)
-        
-        return created_repetitions
+        rating = Rating.Good if request.RightAnswer else Rating.Again
 
+        print('Ok')
+        updated_fsrs_card = self.fsrs.review_card(fsrs_card, rating=rating, review_datetime=request.TimeOfAnswer.astimezone(timezone.utc))[0]
+        print('ok')
+        
+        # Обновление записи в БД
+        repetition.state = self._get_repetition_state(updated_fsrs_card.state)
+        repetition.step = repetition.step + 1
+        repetition.stability = updated_fsrs_card.stability
+        repetition.difficulty = updated_fsrs_card.difficulty
+        repetition.due = updated_fsrs_card.due
+        repetition.last_review = request.TimeOfAnswer.astimezone(timezone.utc)
+        repetition.updated_at = datetime.now(timezone.utc)
+
+        self.db.commit()
+        
+        return {
+            "due_date": repetition.due,
+            "status": repetition.state,
+            "interval": updated_fsrs_card,
+            "stability": repetition.stability,
+            "difficulty": repetition.difficulty
+        }
+    
+    def get_cards_for_repetition(
+        self,
+        user_id: int,
+        module_id: int,
+        skip: int = 0,
+        take: int = 10,
+        due_only: bool = False
+    ) -> GetInternalRepetitionCardResponse:
+        """
+        Получить карточки для интервального повторения.
+        
+        Args:
+            user_id: ID пользователя
+            module_id: ID модуля
+            skip: Число пропускаемых карточек
+            take: Число взятых карточек
+            due_only: Только карточки, готовые к повторению
+            
+        Returns:
+            Ответ с карточками и общим количеством
+        """
+        # Явно используем DBCard для модели БД
+        query = self.db.query(IntervalRepetition).filter(
+            IntervalRepetition.user_id == user_id,
+            IntervalRepetition.module_id == module_id
+        )
+
+        # Если нужны только готовые к повторению карточки
+        if due_only:
+            now = datetime.now()
+            query = query.filter(IntervalRepetition.due <= now)
+        
+        # Получаем общее количество
+        total_count = query.count()
+        
+        # Применяем сортировку и пагинацию
+        # Сортируем по due_date (чем раньше должна быть повторена, тем выше)
+        items = query.order_by(asc(IntervalRepetition.due))\
+                    .offset(skip)\
+                    .limit(take)\
+                    .all()
+        
+        # Извлекаем только карточки из результатов
+        all_cards = [card.card for card in items]
+        
+        # Конвертируем в ответ - здесь нужно использовать CardSchema
+        card_responses = self._cardsdb_to_cards(all_cards)
+        
+        return GetInternalRepetitionCardResponse(
+            Items=card_responses,
+            TotalCount=total_count
+        )
+
+    def _cardsdb_to_cards(self, cardsdb: List[DBCard]) -> List[CardResponse]:
+        all_answers = [card.answer for card in cardsdb]
+        result = []
+        for card in sorted(cardsdb, key=lambda x: x.id):
+            ans, id = self._get_three_answer(all_answers, card.answer)
+            result.append(CardResponse(Id=str(card.id),
+                                    Question=card.question,
+                                    AnswerVariant=ans,
+                                    RightAnswer=id))
+            
+        return result
+
+    def _get_three_answer(self, answers: List[str], right_answer: str):
+        i = 0
+        result = []
+        for answer in random.sample(answers, len(answers)):
+            result.append(answer)
+            i += 1
+            if i == 4:
+                break
+            
+        if right_answer in result:
+            return result, result.index(right_answer)
+        
+        result.pop()
+        result.insert(len(result) // 2, answer)
+        return result, (len(result) // 2)
+
+    def _get_repetition_state(self, fsrs_state: State) -> RepetitionState:
+        """Преобразовать состояние FSRS в RepetitionState."""
+        state_mapping = {
+            State.Learning: RepetitionState.Learning,
+            State.Review: RepetitionState.Review,
+            State.Relearning: RepetitionState.Relearning,
+        }
+        return state_mapping.get(fsrs_state, RepetitionState.Learning)
+
+    def _get_fsrs_state(self, repetition_state: RepetitionState) -> State:
+        """Преобразовать RepetitionState в состояние FSRS."""
+        state_mapping = {
+            RepetitionState.Learning: State.Learning,
+            RepetitionState.Review: State.Review,
+            RepetitionState.Relearning: State.Relearning,
+        }
+        return state_mapping.get(repetition_state)
+    
+    def _serialize_fsrs_card(self, fsrs_card: Card) -> Dict[str, Any]:
+        return {
+            "due": fsrs_card.due if fsrs_card.due else None,
+            "stability": fsrs_card.stability,
+            "difficulty": fsrs_card.difficulty,
+            "state": fsrs_card.state.value,
+            "last_review": fsrs_card.last_review if fsrs_card.last_review else None,
+        }
+
+    def _deserialize_fsrs_card(self, data: IntervalRepetition) -> Card:
+        """Десериализовать FSRS карточку из JSON."""
+        fsrs_card = Card()
+        
+        if data.due:
+            fsrs_card.due = data.due
+        fsrs_card.stability = data.stability
+        fsrs_card.difficulty = data.difficulty
+        fsrs_card.state = self._get_fsrs_state(data.state)
+        if data.last_review:
+            fsrs_card.last_review = data.last_review
+    
+        return fsrs_card

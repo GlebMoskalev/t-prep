@@ -1,40 +1,27 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import List
 from datetime import datetime
 
 
-class IntervalRepetitionBase(BaseModel):
-    card_id: int
-    state: str
-    step: int
-    stability: float
-    difficulty: float
-    due: datetime
-
-
-class IntervalRepetitionCreate(IntervalRepetitionBase):
-    user_id: int
-
-
-class IntervalRepetitionUpdate(BaseModel):
-    state: Optional[str] = None
-    step: Optional[int] = None
-    stability: Optional[float] = None
-    difficulty: Optional[float] = None
-    due: Optional[datetime] = None
-    last_review: Optional[datetime] = None
-
-
-class IntervalRepetitionInDB(IntervalRepetitionBase):
-    id: int
-    user_id: int
-    last_review: Optional[datetime]
-    created_at: datetime
-    updated_at: Optional[datetime]
+class UpdateCardIntervalRepetitionRequest(BaseModel):
+    TimeOfAnswer: datetime
+    RightAnswer: bool
 
     class Config:
         from_attributes = True
 
+class CardResponse(BaseModel):
+    Id: str
+    Question: str
+    AnswerVariant: List[str]
+    RightAnswer: int
 
-class IntervalRepetition(IntervalRepetitionInDB):
-    pass
+    class Config:
+        from_attributes = True
+
+class GetInternalRepetitionCardResponse(BaseModel):
+    Items: List[CardResponse]
+    TotalCount: int
+
+    class Config:
+        from_attributes = True
