@@ -18,3 +18,4 @@ class Module(Base):
     owner = relationship("User", back_populates="modules")
     cards = relationship("Card", back_populates="module", cascade="all, delete-orphan")
     access = relationship("ModuleAccess", back_populates="module", cascade="all, delete-orphan")
+    repetitions = relationship("IntervalRepetition", back_populates="module", cascade="all, delete-orphan")

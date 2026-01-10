@@ -16,4 +16,4 @@ class User(Base):
     # Relationships
     modules = relationship("Module", back_populates="owner", cascade="all, delete-orphan")
     module_accesses = relationship("ModuleAccess", back_populates="owner", cascade="all, delete-orphan")
-    interval_repetitions = relationship("IntervalRepetition", back_populates="user", cascade="all, delete-orphan")
+    repetitions = relationship("IntervalRepetition", back_populates="user", cascade="all, delete-orphan")

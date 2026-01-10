@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Enum
+from sqlalchemy import Column, Integer, Float, DateTime, ForeignKey, Enum, PrimaryKeyConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import enum
@@ -14,9 +14,10 @@ class RepetitionState(str, enum.Enum):
 class IntervalRepetition(Base):
     __tablename__ = "interval_repetitions"
 
-    id = Column(Integer, primary_key=True, index=True)
-    card_id = Column(Integer, ForeignKey("cards.id", ondelete="CASCADE"), nullable=False)
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    module_id = Column(Integer, ForeignKey("modules.id", ondelete="CASCADE"), nullable=False)
+    card_id = Column(Integer, ForeignKey("cards.id", ondelete="CASCADE"), nullable=False)
     state = Column(Enum(RepetitionState), nullable=False, default=RepetitionState.Learning)
     step = Column(Integer, nullable=False, default=0)
     stability = Column(Float, nullable=False, default=0.5)
@@ -28,4 +29,5 @@ class IntervalRepetition(Base):
 
     # Relationships
     card = relationship("Card", back_populates="repetitions")
-    user = relationship("User", back_populates="interval_repetitions")
+    user = relationship("User", back_populates="repetitions")
+    module = relationship("Module", back_populates="repetitions")
