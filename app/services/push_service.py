@@ -21,16 +21,23 @@ class PushNotificationService:
     def _initialize_fcm(self):
         """Инициализация Firebase Admin SDK"""
         if hasattr(settings, 'FCM_SERVICE_ACCOUNT_FILE') and settings.FCM_SERVICE_ACCOUNT_FILE:
+            file_path = settings.FCM_SERVICE_ACCOUNT_FILE
+            # Пропускаем дефолтное значение
+            if file_path == 'path-to-file':
+                logger.warning("⚠️ FCM_SERVICE_ACCOUNT_FILE not configured, push notifications disabled")
+                return
             try:
-                with open(settings.FCM_SERVICE_ACCOUNT_FILE, 'r') as file:
+                with open(file_path, 'r') as file:
                     cred_dict = json.load(file)
                     cred = credentials.Certificate(cred_dict)
                     initialize_app(cred)
                     self.is_initialized = True
                     logger.info("✅ FCM initialized with credentials from env variable")
                     return
+            except FileNotFoundError:
+                logger.error(f"❌ FCM credentials file not found: {file_path}")
             except json.JSONDecodeError as e:
-                logger.error(f"❌ Invalid JSON in FCM_CREDENTIALS_JSON: {e}")
+                logger.error(f"❌ Invalid JSON in FCM credentials: {e}")
     
     def send_push(
         self,

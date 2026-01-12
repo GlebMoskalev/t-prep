@@ -35,6 +35,10 @@ services:
       # App settings
       - DEBUG=False
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-*}
+      # Firebase Cloud Messaging
+      - FCM_SERVICE_ACCOUNT_FILE=/app/fcm-service-account.json
+    volumes:
+      - ./fcm-service-account.json:/app/fcm-service-account.json:ro
     restart: unless-stopped
     depends_on:
       db:
