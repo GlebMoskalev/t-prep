@@ -129,40 +129,55 @@ class PushNotificationService:
             return
         
         from app.models.user import User
+        from app.models.interval_repetition import IntervalRepetition
+        from sqlalchemy import func
         
-        print("AAAAA")
         db = SessionLocal()
         try:
             current_time = datetime.now()
-        
+            
+            # Находим пользователей с карточками, которые пора повторить
             users_with_due_cards = db.query(
                 User.id,
-                User.push_id
+                User.push_id,
+                func.count(IntervalRepetition.id).label('due_count')
+            ).join(
+                IntervalRepetition, User.id == IntervalRepetition.user_id
             ).filter(
-                User.push_id.isnot(None)
-            ).distinct().all()
+                User.push_id.isnot(None),
+                IntervalRepetition.due <= current_time
+            ).group_by(User.id, User.push_id).all()
             
             sent_count = 0
-            print(users_with_due_cards.__len__())
             for user in users_with_due_cards:
+                due_count = user.due_count
+                
+                # Формируем текст в зависимости от количества
+                if due_count == 1:
+                    body = "1 карточка ждёт повторения!"
+                elif due_count < 5:
+                    body = f"{due_count} карточки ждут повторения!"
+                else:
+                    body = f"{due_count} карточек ждут повторения!"
+                
                 result = self.send_push(
                     fcm_token=user.push_id,
-                    title="📚 T-Prep: Время учиться!",
-                    body=f"Время повторить уроки!",
+                    title="📚 T-Prep: Время повторять!",
+                    body=body,
                     data={
                         "type": "study_reminder",
                         "userId": str(user.id),
+                        "dueCount": str(due_count),
                         "timestamp": current_time.isoformat(),
                         "click_action": "FLUTTER_NOTIFICATION_CLICK"
                     }
                 )
-                print(result)
 
                 if not result.get("error"):
                     sent_count += 1
-                    logger.info(f"📨 Reminder sent to user {user.id} ( cards due)")
+                    logger.info(f"📨 Reminder sent to user {user.id} ({due_count} cards due)")
                 else:
-                    print(result.get("error"))
+                    logger.warning(f"❌ Failed to send to user {user.id}: {result.get('error')}")
 
             logger.info(f"✅ Study reminders sent: {sent_count}/{len(users_with_due_cards)}")
             
