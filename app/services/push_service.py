@@ -164,13 +164,6 @@ class PushNotificationService:
                     fcm_token=user.push_id,
                     title="📚 T-Prep: Время повторять!",
                     body=body,
-                    data={
-                        "type": "study_reminder",
-                        "userId": str(user.id),
-                        "dueCount": str(due_count),
-                        "timestamp": current_time.isoformat(),
-                        "click_action": "FLUTTER_NOTIFICATION_CLICK"
-                    }
                 )
 
                 if not result.get("error"):
