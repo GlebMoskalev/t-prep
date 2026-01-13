@@ -48,7 +48,7 @@ class Settings(BaseSettings):
     }
     
     FCM_PROJECT_ID: str = "your-project-id"
-    PUSH_INTERVAL_MINUTES: float = 10
+    PUSH_INTERVAL_MINUTES: float = 1
     FCM_SERVICE_ACCOUNT_FILE: str = "path-to-file"
 
 
