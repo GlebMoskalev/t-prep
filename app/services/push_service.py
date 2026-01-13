@@ -108,10 +108,6 @@ class PushNotificationService:
             logger.warning(f"❌ Token not registered: {fcm_token[:15]}...")
             return {"error": "token_not_registered", "message": "Token is not registered"}
             
-        except messaging.InvalidArgumentError:
-            logger.warning(f"❌ Invalid token: {fcm_token[:15]}...")
-            return {"error": "invalid_token", "message": "Invalid FCM token"}
-            
         except FirebaseError as e:
             error_msg = str(e)
             logger.error(f"❌ Firebase error sending push to {fcm_token[:15]}...: {error_msg}")
