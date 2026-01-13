@@ -123,12 +123,13 @@ class PushNotificationService:
             return {"error": "send_failed", "message": error_msg}
 
     async def send_study_reminders(self):
-        """Отправка напоминаний о повторении карточек"""
+        """Отправка напоминаний о повторении карточек — отдельный пуш для каждого модуля"""
         if not self.is_initialized:
             logger.warning("Push service not initialized, skipping reminders")
             return
         
         from app.models.user import User
+        from app.models.module import Module
         from app.models.interval_repetition import IntervalRepetition
         from sqlalchemy import func
         
@@ -136,43 +137,56 @@ class PushNotificationService:
         try:
             current_time = datetime.now()
             
-            # Находим пользователей с карточками, которые пора повторить
-            users_with_due_cards = db.query(
-                User.id,
+            # Находим карточки для повторения сгруппированные по пользователю и модулю
+            due_cards_by_module = db.query(
+                User.id.label('user_id'),
                 User.push_id,
+                IntervalRepetition.module_id,
+                Module.name.label('module_name'),
                 func.count(IntervalRepetition.id).label('due_count')
             ).join(
                 IntervalRepetition, User.id == IntervalRepetition.user_id
+            ).join(
+                Module, IntervalRepetition.module_id == Module.id
             ).filter(
                 User.push_id.isnot(None),
                 IntervalRepetition.due <= current_time
-            ).group_by(User.id, User.push_id).all()
+            ).group_by(User.id, User.push_id, IntervalRepetition.module_id, Module.name).all()
             
             sent_count = 0
-            for user in users_with_due_cards:
-                due_count = user.due_count
-                
-                # Формируем текст в зависимости от количества
-                if due_count == 1:
-                    body = "1 карточка ждёт повторения!"
-                elif due_count < 5:
-                    body = f"{due_count} карточки ждут повторения!"
+            for row in due_cards_by_module:
+                # Формируем текст
+                if row.due_count == 1:
+                    body = f"1 карточка ждёт повторения"
+                elif row.due_count < 5:
+                    body = f"{row.due_count} карточки ждут повторения"
                 else:
-                    body = f"{due_count} карточек ждут повторения!"
+                    body = f"{row.due_count} карточек ждут повторения"
+                
+                # Данные для фронта
+                data = {
+                    "type": "study_reminder",
+                    "userId": str(row.user_id),
+                    "moduleId": str(row.module_id),
+                    "moduleName": row.module_name,
+                    "dueCount": str(row.due_count),
+                    "click_action": "FLUTTER_NOTIFICATION_CLICK"
+                }
                 
                 result = self.send_push(
-                    fcm_token=user.push_id,
-                    title="📚 T-Prep: Время повторять!",
+                    fcm_token=row.push_id,
+                    title=f"📚 {row.module_name}",
                     body=body,
+                    data=data
                 )
 
                 if not result.get("error"):
                     sent_count += 1
-                    logger.info(f"📨 Reminder sent to user {user.id} ({due_count} cards due)")
+                    logger.info(f"📨 Reminder sent to user {row.user_id} for module {row.module_id} ({row.due_count} cards)")
                 else:
-                    logger.warning(f"❌ Failed to send to user {user.id}: {result.get('error')}")
+                    logger.warning(f"❌ Failed to send to user {row.user_id}: {result.get('error')}")
 
-            logger.info(f"✅ Study reminders sent: {sent_count}/{len(users_with_due_cards)}")
+            logger.info(f"✅ Study reminders sent: {sent_count}/{len(due_cards_by_module)}")
             
         except Exception as e:
             logger.error(f"❌ Error sending study reminders: {e}", exc_info=True)
