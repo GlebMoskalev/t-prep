@@ -4,6 +4,7 @@ from typing import List, Optional
 from ...db.database import get_db
 from ...models.user import User
 from ...models.module import Module
+from ...models.interval_repetition import IntervalRepetition
 from ...models.module_access import ModuleAccess, AccessLevel as AL
 from ...schemas.module import Module as ModuleSchema, ModuleCreate, ModuleUpdate, ModuleWithCards, GetModulesResponse, AccessLevel as SchemaAccessLevel
 from ...core.deps import get_current_active_user
@@ -37,7 +38,7 @@ async def get_user_modules(
         return GetModulesResponse(items=[], total_count=len(modules))
 
     return GetModulesResponse(
-        items=[CreateModuleScema(module, GetModuleAccessByUserId(module, current_user.id)) for module in modules[skip:min(len(modules), skip + take)]], 
+        items=[CreateModuleScema(module, GetModuleAccessByUserId(module, current_user.id), db, current_user.id) for module in modules[skip:min(len(modules), skip + take)]], 
         total_count=len(modules)
     )
     
@@ -52,7 +53,7 @@ async def get_user_modules(
         Module.id == module_id
     ).first()
 
-    return CreateModuleScema(module, GetModuleAccessByUserId(module, current_user.id))
+    return CreateModuleScema(module, GetModuleAccessByUserId(module, current_user.id), db, current_user.id)
 
 
 def GetModuleAccessByUserId(module: Module, user_id: int):
@@ -95,9 +96,14 @@ async def create_module(
     db.commit()
     db.refresh(module_with_access)
 
-    return CreateModuleScema(db_module, module_with_access)
+    return CreateModuleScema(db_module, module_with_access, db, current_user.id)
 
-def CreateModuleScema(bd_model: Module, access_model: ModuleAccess):
+def CreateModuleScema(bd_model: Module, access_model: ModuleAccess, db: Session, user_id: int):
+    interval_reps = db.query(IntervalRepetition).filter(
+        IntervalRepetition.module_id == bd_model.id,
+        IntervalRepetition.user_id == user_id
+    ).all()
+
     return ModuleSchema(
         name=bd_model.name,
         description=bd_model.description,
@@ -107,7 +113,8 @@ def CreateModuleScema(bd_model: Module, access_model: ModuleAccess):
         updated_at=bd_model.updated_at,
         ViewAccess=access_model.view_access,
         EditAccess=access_model.edit_access,
-        PasswordHash=access_model.password_hash
+        PasswordHash=access_model.password_hash,
+        IsIntervalRepetitionsEnabled=len(interval_reps) > 0
     )
 
 
