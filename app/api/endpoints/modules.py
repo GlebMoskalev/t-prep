@@ -40,6 +40,28 @@ async def get_user_modules(
         items=[CreateModuleScema(module, GetModuleAccessByUserId(module, current_user.id)) for module in modules[skip:min(len(modules), skip + take)]], 
         total_count=len(modules)
     )
+    
+@router.get("/{module_id}", response_model=ModuleSchema)
+async def get_user_modules(
+    module_id: int,
+    filter: SchemaAccessLevel = SchemaAccessLevel.ONLY_ME,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    if filter == SchemaAccessLevel.ONLY_ME:
+        module = db.query(Module).filter(
+            Module.id == module_id,
+            Module.owner_id == current_user.id
+        ).first()
+    else:
+        module = db.query(Module).join(ModuleAccess).filter(
+            Module.owner_id != current_user.id,
+            ModuleAccess.view_access == AL.ALL_USERS.value,
+            Module.id == module_id
+        ).first()
+
+    return CreateModuleScema(module, GetModuleAccessByUserId(module, current_user.id))
+
 
 def GetModuleAccessByUserId(module: Module, user_id: int):
     for access in module.access:

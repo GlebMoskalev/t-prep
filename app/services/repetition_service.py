@@ -12,20 +12,20 @@ from typing import List
 
 @dataclass
 class UpdateCardIntervalRepetitionRequest:
-    TimeOfAnswer: datetime
-    RightAnswer: bool
+    time_of_answer: datetime
+    right_answer: bool
 
 @dataclass
 class CardResponse:
-    Id: str
-    Question: str
-    AnswerVariant: List[str]
-    RightAnswer: int
+    id: str
+    question: str
+    answer_variant: List[str]
+    right_answer: int
 
 @dataclass
 class GetInternalRepetitionCardResponse:
-    Items: List[CardResponse]
-    TotalCount: int
+    items: List[CardResponse]
+    total_count: int
 
 
 class RepetitionService:
@@ -132,10 +132,10 @@ class RepetitionService:
         fsrs_card = self._deserialize_fsrs_card(repetition)
         print('Ok')
     
-        rating = Rating.Good if request.RightAnswer else Rating.Again
+        rating = Rating.Good if request.right_answer else Rating.Again
 
         print('Ok')
-        updated_fsrs_card = self.fsrs.review_card(fsrs_card, rating=rating, review_datetime=request.TimeOfAnswer.astimezone(timezone.utc))[0]
+        updated_fsrs_card = self.fsrs.review_card(fsrs_card, rating=rating, review_datetime=request.time_of_answer.astimezone(timezone.utc))[0]
         print('ok')
         
         # Обновление записи в БД
@@ -144,7 +144,7 @@ class RepetitionService:
         repetition.stability = updated_fsrs_card.stability
         repetition.difficulty = updated_fsrs_card.difficulty
         repetition.due = updated_fsrs_card.due
-        repetition.last_review = request.TimeOfAnswer.astimezone(timezone.utc)
+        repetition.last_review = request.time_of_answer.astimezone(timezone.utc)
         repetition.updated_at = datetime.now(timezone.utc)
 
         self.db.commit()
@@ -206,8 +206,8 @@ class RepetitionService:
         card_responses = self._cardsdb_to_cards(all_cards)
         
         return GetInternalRepetitionCardResponse(
-            Items=card_responses,
-            TotalCount=total_count
+            items=card_responses,
+            total_count=total_count
         )
 
     def _cardsdb_to_cards(self, cardsdb: List[DBCard]) -> List[CardResponse]:
@@ -215,10 +215,10 @@ class RepetitionService:
         result = []
         for card in sorted(cardsdb, key=lambda x: x.id):
             ans, id = self._get_three_answer(all_answers, card.answer)
-            result.append(CardResponse(Id=str(card.id),
-                                    Question=card.question,
-                                    AnswerVariant=ans,
-                                    RightAnswer=id))
+            result.append(CardResponse(id=str(card.id),
+                                    question=card.question,
+                                    answer_variant=ans,
+                                    right_answer=id))
             
         return result
 

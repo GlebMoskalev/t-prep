@@ -4,24 +4,24 @@ from datetime import datetime
 
 
 class UpdateCardIntervalRepetitionRequest(BaseModel):
-    TimeOfAnswer: datetime
-    RightAnswer: bool
+    time_of_answer: datetime
+    right_answer: bool
 
     class Config:
         from_attributes = True
 
 class CardResponse(BaseModel):
-    Id: str
-    Question: str
-    AnswerVariant: List[str]
-    RightAnswer: int
+    id: str
+    question: str
+    answer_variant: List[str]
+    right_answer: int
 
     class Config:
         from_attributes = True
 
 class GetInternalRepetitionCardResponse(BaseModel):
-    Items: List[CardResponse]
-    TotalCount: int
+    items: List[CardResponse]
+    total_count: int
 
     class Config:
         from_attributes = True
