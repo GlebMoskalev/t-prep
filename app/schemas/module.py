@@ -44,7 +44,7 @@ class ModuleInDB(ModuleBase):
 
 
 class Module(ModuleInDB):
-    pass
+    IsIntervalRepetitionsEnabled: bool
 
 
 # Forward reference будет разрешен после импорта card schemas
