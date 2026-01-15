@@ -122,9 +122,10 @@ def CreateModuleScema(bd_model: Module, access_model: ModuleAccess, db: Session,
         ViewAccess=access_model.view_access,
         EditAccess=access_model.edit_access,
         PasswordHash=access_model.password_hash,
-        IsIntervalRepetitionsEnabled=len(interval_reps) > 0
+        IsIntervalRepetitionsEnabled=len(interval_reps) > 0,
+        TotalCards=len(bd_model.cards),
+        CardsToRepeatCount=len(set(rep.card_id for rep in interval_reps))
     )
-
 
 @router.patch("/{module_id}", response_model=ModuleSchema)
 async def update_module(
