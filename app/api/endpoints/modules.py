@@ -48,17 +48,9 @@ async def get_user_modules(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    if filter == SchemaAccessLevel.ONLY_ME:
-        module = db.query(Module).filter(
-            Module.id == module_id,
-            Module.owner_id == current_user.id
-        ).first()
-    else:
-        module = db.query(Module).join(ModuleAccess).filter(
-            Module.owner_id != current_user.id,
-            ModuleAccess.view_access == AL.ALL_USERS.value,
-            Module.id == module_id
-        ).first()
+    module = db.query(Module).filter(
+        Module.id == module_id
+    ).first()
 
     return CreateModuleScema(module, GetModuleAccessByUserId(module, current_user.id))
 
