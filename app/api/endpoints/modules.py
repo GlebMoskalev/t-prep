@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from ...db.database import get_db
 from ...models.user import User
 from ...models.module import Module
@@ -15,13 +15,24 @@ router = APIRouter()
 async def get_user_modules(
     skip: int = 0,
     take: int = 10,
+    search_string: Optional[str] = None,
+    filter: SchemaAccessLevel = SchemaAccessLevel.ONLY_ME,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    modules = db.query(Module).filter(
-        Module.owner_id == current_user.id
-    ).all()
-    
+    search_string = "" if search_string is None else search_string
+    if filter == SchemaAccessLevel.ONLY_ME:
+        modules = db.query(Module).filter(
+            Module.owner_id == current_user.id,
+            Module.name.ilike(f"%{search_string}%")
+        ).all()
+    else:
+        modules = db.query(Module).join(ModuleAccess).filter(
+            Module.owner_id != current_user.id,
+            ModuleAccess.view_access == AL.ALL_USERS.value,
+            Module.name.ilike(f"%{search_string}%")
+        ).all()
+
     if len(modules) < skip:
         return GetModulesResponse(items=[], total_count=len(modules))
 
@@ -32,7 +43,7 @@ async def get_user_modules(
 
 def GetModuleAccessByUserId(module: Module, user_id: int):
     for access in module.access:
-        if access.owner_id == user_id:
+        if access.view_access == AL.ALL_USERS or access.owner_id == user_id:
             return access
     raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
