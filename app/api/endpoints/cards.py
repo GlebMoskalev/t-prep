@@ -4,6 +4,7 @@ from typing import List, Tuple
 from ...db.database import get_db
 from ...models.user import User
 from ...models.module import Module
+from ...models.module_access import AccessLevel
 from ...models.card import Card
 from ...schemas.card import Card as CardSchema, CreateCardRequest, PatchCardRequest, GetCardResponse, CardInDB
 from ...core.deps import get_current_active_user
@@ -21,8 +22,7 @@ async def get_module_cards(
     db: Session = Depends(get_db)
 ):
     module = db.query(Module).filter(
-        Module.id == module_id,
-        Module.owner_id == current_user.id
+        Module.id == module_id
     ).first()
     
     if not module:
@@ -30,7 +30,7 @@ async def get_module_cards(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Module not found"
         )
-    
+
     cards = db.query(Card).filter(Card.module_id == module_id).all()
     
     correct_cards = cardsdb_to_cards(cards)
@@ -112,7 +112,6 @@ async def get_card(
     """Get card by ID"""
     card = db.query(Card).join(Module).filter(
         Card.id == card_id,
-        Module.owner_id == current_user.id,
         Module.id == module_id
     ).first()
 
