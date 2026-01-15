@@ -45,6 +45,8 @@ class ModuleInDB(ModuleBase):
 
 class Module(ModuleInDB):
     IsIntervalRepetitionsEnabled: bool
+    TotalCards: int
+    CardsToRepeatCount: int
 
 
 # Forward reference будет разрешен после импорта card schemas
