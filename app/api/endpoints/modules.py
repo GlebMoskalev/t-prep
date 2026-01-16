@@ -8,6 +8,7 @@ from ...models.interval_repetition import IntervalRepetition
 from ...models.module_access import ModuleAccess, AccessLevel as AL
 from ...schemas.module import Module as ModuleSchema, ModuleCreate, ModuleUpdate, ModuleWithCards, GetModulesResponse, AccessLevel as SchemaAccessLevel
 from ...core.deps import get_current_active_user
+from datetime import datetime, timezone
 
 router = APIRouter()
 
@@ -100,7 +101,8 @@ async def create_module(
 def CreateModuleScema(bd_model: Module, access_model: ModuleAccess, db: Session, user_id: int):
     interval_reps = db.query(IntervalRepetition).filter(
         IntervalRepetition.module_id == bd_model.id,
-        IntervalRepetition.user_id == user_id
+        IntervalRepetition.user_id == user_id,
+        IntervalRepetition.due < datetime.now(timezone.utc)
     ).all()
 
     return ModuleSchema(

@@ -162,8 +162,7 @@ class RepetitionService:
         user_id: int,
         module_id: int,
         skip: int = 0,
-        take: int = 10,
-        due_only: bool = False
+        take: int = 10
     ) -> GetInternalRepetitionCardResponse:
         """
         Получить карточки для интервального повторения.
@@ -181,15 +180,10 @@ class RepetitionService:
         # Явно используем DBCard для модели БД
         query = self.db.query(IntervalRepetition).filter(
             IntervalRepetition.user_id == user_id,
-            IntervalRepetition.module_id == module_id
+            IntervalRepetition.module_id == module_id,
+            IntervalRepetition.due < datetime.now(timezone.utc)
         )
-
-        # Если нужны только готовые к повторению карточки
-        if due_only:
-            now = datetime.now()
-            query = query.filter(IntervalRepetition.due <= now)
-        
-        # Получаем общее количество
+    
         total_count = query.count()
         
         # Применяем сортировку и пагинацию
