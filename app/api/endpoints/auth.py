@@ -153,6 +153,19 @@ async def google_android_auth(
 
 
 @router.post("/logout")
-async def logout():
-    """Logout user (client should discard token)"""
-    return {"message": "Successfully logged out"}
+async def logout(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Logout user (client should discard token) and clear push_id"""
+    try:
+        db.query(User).filter(User.id == current_user.id).update({"push_id": None})
+        db.commit()
+
+        return {"message": "Successfully logged out"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Logout failed: {str(e)}"
+        )
