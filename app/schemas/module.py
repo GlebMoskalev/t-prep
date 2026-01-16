@@ -37,7 +37,7 @@ class ModuleInDB(ModuleBase):
     updated_at: Optional[datetime]
     ViewAccess: AccessLevel
     EditAccess: AccessLevel
-    PasswordHash: Optional[str]
+    PasswordHash: Optional[str] = None
 
     class Config:
         from_attributes = True
