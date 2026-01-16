@@ -161,7 +161,7 @@ async def update_module(
     db.refresh(module_access)
     db.refresh(module)
 
-    return CreateModuleScema(module, module_access)
+    return CreateModuleScema(module, module_access, db, current_user.id)
 
 
 @router.delete("/{module_id}")
