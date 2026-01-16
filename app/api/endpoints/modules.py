@@ -101,8 +101,7 @@ async def create_module(
 def CreateModuleScema(bd_model: Module, access_model: ModuleAccess, db: Session, user_id: int):
     interval_reps = db.query(IntervalRepetition).filter(
         IntervalRepetition.module_id == bd_model.id,
-        IntervalRepetition.user_id == user_id,
-        IntervalRepetition.due < datetime.now(timezone.utc)
+        IntervalRepetition.user_id == user_id
     ).all()
 
     return ModuleSchema(
@@ -116,7 +115,7 @@ def CreateModuleScema(bd_model: Module, access_model: ModuleAccess, db: Session,
         EditAccess=access_model.edit_access,
         IsIntervalRepetitionsEnabled=len(interval_reps) > 0,
         TotalCards=len(bd_model.cards),
-        CardsToRepeatCount=len(set(rep.card_id for rep in interval_reps))
+        CardsToRepeatCount=len(set(rep.card_id for rep in interval_reps if rep.due < datetime.now(timezone.utc)))
     )
 
 @router.patch("/{module_id}", response_model=ModuleSchema)
