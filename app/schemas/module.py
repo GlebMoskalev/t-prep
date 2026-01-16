@@ -20,7 +20,6 @@ class ModuleBase(BaseModel):
 class ModuleCreate(ModuleBase):
     ViewAccess: AccessLevel
     EditAccess: AccessLevel
-    PasswordHash: Optional[str] = None
 
 
 class ModuleUpdate(BaseModel):
@@ -37,7 +36,6 @@ class ModuleInDB(ModuleBase):
     updated_at: Optional[datetime]
     ViewAccess: AccessLevel
     EditAccess: AccessLevel
-    PasswordHash: Optional[str] = None
 
     class Config:
         from_attributes = True

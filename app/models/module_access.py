@@ -18,7 +18,6 @@ class ModuleAccess(Base):
     owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     view_access = Column(String, nullable=False, default=AccessLevel.ONLY_ME)
     edit_access = Column(String, nullable=False, default=AccessLevel.ONLY_ME)
-    password_hash = Column(String, nullable=True)
 
     # Relationships
     module = relationship("Module", back_populates="access")

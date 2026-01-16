@@ -88,8 +88,7 @@ async def create_module(
         module_id=db_module.id,
         owner_id=current_user.id,
         view_access=module.ViewAccess.value,
-        edit_access=module.EditAccess.value,
-        password_hash=module.PasswordHash
+        edit_access=module.EditAccess.value
     )
 
     db.add(module_with_access)
@@ -113,7 +112,6 @@ def CreateModuleScema(bd_model: Module, access_model: ModuleAccess, db: Session,
         updated_at=bd_model.updated_at,
         ViewAccess=access_model.view_access,
         EditAccess=access_model.edit_access,
-        PasswordHash=access_model.password_hash,
         IsIntervalRepetitionsEnabled=len(interval_reps) > 0,
         TotalCards=len(bd_model.cards),
         CardsToRepeatCount=len(set(rep.card_id for rep in interval_reps))
