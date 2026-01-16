@@ -4,6 +4,7 @@ from ...db.database import get_db
 from ...services.auth_service import AuthService
 from ...services.google_oauth_service import GoogleOAuthService
 from ...schemas.user import Token, User
+from ...models.user import User as DBUser
 from ...core.deps import get_current_active_user
 
 router = APIRouter()
@@ -159,7 +160,7 @@ async def logout(
 ):
     """Logout user (client should discard token) and clear push_id"""
     try:
-        db.query(User).filter(User.id == current_user.id).update({"push_id": None})
+        db.query(DBUser).filter(DBUser.id == current_user.id).update({"push_id": None})
         db.commit()
 
         return {"message": "Successfully logged out"}
